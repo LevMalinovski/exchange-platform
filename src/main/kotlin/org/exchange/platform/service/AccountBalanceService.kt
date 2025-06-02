@@ -97,9 +97,4 @@ class AccountBalanceService(
     fun lockByAccountIdAndAssetSymbol(accountId: UUID, symbol: AssetSymbol): Optional<AccountBalance> {
         return accountBalanceRepository.lockByAccountIdAndAssetSymbol(accountId, symbol)
     }
-
-    fun lockByAccountIdAndAssetSymbol(accountEmail: String, symbol: AssetSymbol): Optional<AccountBalance> {
-        val account = accountService.getAccount(accountEmail)
-        return lockByAccountIdAndAssetSymbol(account.id, symbol)
-    }
 }
