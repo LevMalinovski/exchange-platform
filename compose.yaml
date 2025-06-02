@@ -1,0 +1,77 @@
+services:
+  exchange-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - exchange-network
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      - 'POSTGRES_DB=${DB_DATABASE}'
+      - 'POSTGRES_PASSWORD=${DB_PASSWORD}'
+      - 'POSTGRES_USER=${DB_USERNAME}'
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - './postgres-db:/var/lib/postgresql/data'
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${DB_DATABASE}", "-U", "${DB_USERNAME}" ]
+      retries: 3
+      timeout: 5s
+    networks:
+      - exchange-network
+      - monitoring
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - monitoring
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./prometheus/promtail-config.yml:/etc/promtail/config.yml
+      - ./logs:/var/log/springboot  # Matches where your app writes logs
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./provisioning/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./provisioning/data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    networks:
+      - monitoring
+networks:
+  monitoring:
+    driver: bridge
+  exchange-network:
+    driver: bridge
